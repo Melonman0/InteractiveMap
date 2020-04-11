@@ -42,7 +42,6 @@
                     var mat = new THREE.LineBasicMaterial({color: 0xff0000});
                     var lineSegments = new THREE.LineSegments(geometry, mat); 
                     lineSegments.userData = this;
-                    
                     return lineSegments;
                 },
 
@@ -91,7 +90,8 @@
             var topology;
             var countries = [];
             var feature;
-            var raycastObjs = []
+            var raycastObjs = [];
+            var lineObjs = [];
             fetch('world_map.json').then((response) => {
                 return response.json();
             }).then((data) => {
@@ -120,7 +120,9 @@
                 }
 
                 for(let i = 0; i < countries.length; ++i) { 
-                     scene.add(countries[i].createLine());
+                    let line = countries[i].createLine();
+                    lineObjs.push(line)
+                    scene.add(line);
                 }
                
                 //Troubleshooting
@@ -176,6 +178,31 @@
                 renderer.render(scene, camera);
             }
             animate();
+
+            function staggerTest() {
+                let staggerObjs = [];
+                for(let i = 0; i < raycastObjs.length; ++i) { 
+                    staggerObjs.push(raycastObjs[i].position);
+                }
+                let staggerLines = [];
+                for(let i = 0; i < lineObjs.length; ++i) { 
+                    staggerLines.push(lineObjs[i].position);
+                }
+                anime({
+                    targets: staggerObjs,
+                    z: 200,
+                    delay: anime.stagger(25),
+                    easing: 'easeInQuad'
+                })
+
+                anime({
+                    targets: staggerLines,
+                    z: 200,
+                    delay: anime.stagger(25),
+                    easing: 'easeOutQuad'
+                })
+                
+            }
 
 
             document.addEventListener('wheel', onDocumentMouseWheel, false);
