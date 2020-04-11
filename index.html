@@ -23,9 +23,7 @@
             }
 
             Country.prototype = {
-                createMesh : function() {
-                    //console.log(this.geometry.coordinates);
-
+                createLine : function() {
                     const geometry = new THREE.Geometry();
                     for (let P of this.geometry.coordinates) {
                         if(this.geometry.type === "MultiPolygon")
@@ -40,13 +38,41 @@
 
                         }
                     }
-                    
-                    //console.log(geometry) 
+                     
                     var mat = new THREE.LineBasicMaterial({color: 0xff0000});
                     var lineSegments = new THREE.LineSegments(geometry, mat); 
                     lineSegments.userData = this;
-                    //console.log(lineSegments)
+                    
                     return lineSegments;
+                },
+
+                createShape : function() {
+                    var vecs2 = [];
+                    let shapearray = [];
+                    
+                    for (let P of this.geometry.coordinates) {
+                        if(this.geometry.type === "MultiPolygon") {
+                            P = P[0];
+                        } 
+                            
+                        let p0 = new THREE.Vector2(P[0][0], P[0][1]);
+                        for (let i = 1; i < P.length; ++ i) {
+
+                            let p1 = new THREE.Vector2(P[i][0], P[i][1]);
+                            vecs2.push(p0, p1);
+                            p0 = p1;
+                        }
+
+                        shapearray.push(new THREE.Shape(vecs2));      
+                        vecs2 = [];
+                    }
+ 
+                    var mat = new THREE.MeshBasicMaterial({color: 0x000000}); 
+                    var shapeGeo = new THREE.ShapeGeometry(shapearray);
+                    var mesh = new THREE.Mesh( shapeGeo, mat ) ;
+                    mesh.userData = this;
+                    
+                    return mesh;
                 }
             };
 
@@ -54,6 +80,7 @@
 
         <script>
             var scene = new THREE.Scene();
+            scene.background = new THREE.Color( 0xaaaaaa );
             var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
             var renderer = new THREE.WebGLRenderer();
@@ -64,6 +91,7 @@
             var topology;
             var countries = [];
             var feature;
+            var raycastObjs = []
             fetch('world_map.json').then((response) => {
                 return response.json();
             }).then((data) => {
@@ -84,16 +112,26 @@
 
                 console.log(countries);
 
-                for(let i = 0; i < countries.length; ++i) { 
-                    scene.add(countries[i].createMesh())
+                
+                for(let i = 0; i < countries.length; ++i) {
+                    var shape = countries[i].createShape();  
+                    raycastObjs.push(shape);
+                    scene.add(shape);
                 }
 
+                for(let i = 0; i < countries.length; ++i) { 
+                     scene.add(countries[i].createLine());
+                }
+               
                 //Troubleshooting
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "Niger"})[0].createMesh() );
+                //scene.add(countries.filter((x) => { return x.properties.NAME == "Niger"})[0].createLine() );
                 //console.log(countries.filter((x) => { return x.properties.NAME == "Niger"}))
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "United States of America"})[0].createMesh() );
+                
+                //scene.add(countries.filter((x) => { return x.properties.NAME == "Canada"})[0].createLine() );
+                //scene.add(countries.filter((x) => { return x.properties.NAME == "United States of America"})[0].createShape() );
+                //scene.add(countries.filter((x) => { return x.properties.NAME == "Australia"})[0].createShape() );
+                //scene.add(countries.filter((x) => { return x.properties.NAME == "Niger"})[0].createShape() );
                 //console.log(countries.filter((x) => { return x.properties.NAME == "United States of America"}))
-
             });
 
             camera.position.z = 200;
@@ -109,7 +147,7 @@
                 raycaster.setFromCamera(mouse, camera);
 
                 // calculate objects intersecting the picking ray
-                var intersects = raycaster.intersectObjects(scene.children);
+                var intersects = raycaster.intersectObjects(raycastObjs);
 
                 if (intersects.length > 0) {
 
@@ -121,15 +159,16 @@
 
                         INTERSECTED = intersects[0].object;
                         INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
-                        INTERSECTED.material.color.setHex(0xffffff);
+                        INTERSECTED.material.color.setHex(0xffffff);                        
                         
                         console.log(INTERSECTED.userData.properties.NAME)
                     }
 
                 } else {
 
-                    if (INTERSECTED) 
-                        INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
+                    if (INTERSECTED) {
+                        INTERSECTED.material.color.setHex(INTERSECTED.currentHex);                        
+                    }
                     
                     INTERSECTED = null;
                 }
@@ -147,8 +186,6 @@
                     duration: 500,
                     easing: 'easeOutQuad'
                 })
-                //camera.position.z -= event.wheelDeltaY * 0.05;
-                //camera.updateProjectionMatrix();
             }
 
 
