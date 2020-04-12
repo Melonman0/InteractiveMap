@@ -1,5 +1,7 @@
 # Interactive Map
 
+[Live demo here](https://melonman0.github.io/InteractiveMap/)
+
 An interactive map using [Three.js](https://threejs.org/) and [TopoJSON](https://github.com/topojson/topojson)
 
 Map data taken from [Natural Earth](https://www.naturalearthdata.com/) and transformed into a TopoJSON using [MapShaper](https://mapshaper.org/)
