@@ -9,234 +9,209 @@
             canvas {
                 display: block;
             }
+            .country_name {
+                position: fixed;
+                bottom: 10%;
+                left: 10%;
+                font-size: 4rem;
+                color: white;
+                user-select: none;
+                text-shadow: -1px 1px 0 #000, 1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000;
+                font-family: 'Roboto', sans-serif;
+            }
         </style>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js" integrity="sha256-+5R1zw/Tcxp82QhhfAJlicTeM4LCzFxp6EvsZW3V9bE=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
+        <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
+        <script src="Country.js"></script>
     </head>
     <body>
-        <script>
-            var Country = function(geometry, properties, material) {
-                this.geometry = geometry;
-                this.properties = properties;                
-                this.material = material;
-            }
-
-            Country.prototype = {
-                createLine : function() {
-                    const geometry = new THREE.Geometry();
-                    for (let P of this.geometry.coordinates) {
-                        if(this.geometry.type === "MultiPolygon")
-                            P = P[0];
-                        
-                        let p0 = new THREE.Vector3(P[0][0], P[0][1], 0);
-                        for (let i = 1; i < P.length; ++ i) {
-
-                            let p1 = new THREE.Vector3(P[i][0], P[i][1], 0);
-                            geometry.vertices.push(p0, p1);
-                            p0 = p1;
-
-                        }
-                    }
-                     
-                    var mat = new THREE.LineBasicMaterial({color: 0xff0000});
-                    var lineSegments = new THREE.LineSegments(geometry, mat); 
-                    lineSegments.userData = this;
-                    return lineSegments;
-                },
-
-                createShape : function() {
-                    var vecs2 = [];
-                    let shapearray = [];
-                    
-                    for (let P of this.geometry.coordinates) {
-                        if(this.geometry.type === "MultiPolygon") {
-                            P = P[0];
-                        } 
-                            
-                        let p0 = new THREE.Vector2(P[0][0], P[0][1]);
-                        for (let i = 1; i < P.length; ++ i) {
-
-                            let p1 = new THREE.Vector2(P[i][0], P[i][1]);
-                            vecs2.push(p0, p1);
-                            p0 = p1;
-                        }
-
-                        shapearray.push(new THREE.Shape(vecs2));      
-                        vecs2 = [];
-                    }
- 
-                    var mat = new THREE.MeshBasicMaterial({color: 0x000000}); 
-                    var shapeGeo = new THREE.ShapeGeometry(shapearray);
-                    var mesh = new THREE.Mesh( shapeGeo, mat ) ;
-                    mesh.userData = this;
-                    
-                    return mesh;
-                }
-            };
-
-        </script>
+        <div class="country_name"></div>
 
         <script>
-            var scene = new THREE.Scene();
-            scene.background = new THREE.Color( 0xaaaaaa );
-            var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            let scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x222222);
 
-            var renderer = new THREE.WebGLRenderer();
+            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 200;
+            camera.lookAt(scene.position);
+
+            let renderer = new THREE.WebGLRenderer();
             renderer.setPixelRatio(window.devicePixelRatio);
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
 
-            var topology;
-            var countries = [];
-            var feature;
-            var raycastObjs = [];
-            var lineObjs = [];
-            fetch('world_map.json').then((response) => {
-                return response.json();
-            }).then((data) => {
-                //console.log(data)
-                topology = data;
-                const mesh = topojson.mesh(topology, topology.objects.world_map);
-                feature = topojson.feature(topology, topology.objects.world_map); 
-                console.log(mesh)
-                console.log(feature);
+            let countries = [];
+            let raycastObjs = [];
+            let lineObjs = [];
+            let raycaster = new THREE.Raycaster();
+            let mouse = new THREE.Vector2();
+            let INTERSECTED = null;
+            let CLICKED = null;
 
-                let material = new THREE.LineBasicMaterial({color: 0xff0000});
-                material.side = THREE.DoubleSide;
-                let sum = 0;
+            init();
+            setupEventListeners();
+            createGUI();
+            animate();
 
-                for(let i = 0; i < feature.features.length; ++i) {
-                    countries.push(new Country(feature.features[i].geometry, feature.features[i].properties, material ))
-                }
 
-                console.log(countries);
+            function init() {
+                fetch('world_map.json').then((response) => {
+                    return response.json();
 
-                
-                for(let i = 0; i < countries.length; ++i) {
-                    var shape = countries[i].createShape();  
-                    raycastObjs.push(shape);
-                    scene.add(shape);
-                }
+                }).then((topology) => {
 
-                for(let i = 0; i < countries.length; ++i) { 
-                    let line = countries[i].createLine();
-                    lineObjs.push(line)
-                    scene.add(line);
-                }
-               
-                //Troubleshooting
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "Niger"})[0].createLine() );
-                //console.log(countries.filter((x) => { return x.properties.NAME == "Niger"}))
-                
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "Canada"})[0].createLine() );
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "United States of America"})[0].createShape() );
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "Australia"})[0].createShape() );
-                //scene.add(countries.filter((x) => { return x.properties.NAME == "Niger"})[0].createShape() );
-                //console.log(countries.filter((x) => { return x.properties.NAME == "United States of America"}))
-            });
+                    let features = topojson.feature(topology, topology.objects.world_map);
+                    console.log(features);
 
-            camera.position.z = 200;
-            camera.lookAt(scene.position);
+                    for (const feature of features.features) {
+                        countries.push(new Country(feature.geometry, feature.properties))
+                    }
+                    console.log(countries);
 
-            var raycaster = new THREE.Raycaster();
-            var mouse = new THREE.Vector2();
-            var INTERSECTED = null;
+
+                    for (const country of countries) {
+                        let shape = country.createShape();
+                        let line = country.createLine();
+                        raycastObjs.push(shape);
+                        lineObjs.push(line)
+
+                        // Workaround due to South Africa not having proper hole rendering
+                        if (country.properties.NAME === "Lesotho") {
+                            shape.position.z = .1;
+                            line.position.z = .1;
+                        }
+
+                        scene.add(shape);
+                        scene.add(line);
+                    }
+
+                    // Troubleshooting
+                    // scene.add(countries.filter((x) => { return x.properties.NAME == "United States of America"})[0].createLine() );
+                    // console.log(countries.filter((x) => { return x.properties.NAME == "United States of America"}))
+                });
+            }
+
+
             function animate() {
                 requestAnimationFrame(animate);
 
-                // update the picking ray with the camera and mouse position
                 raycaster.setFromCamera(mouse, camera);
 
-                // calculate objects intersecting the picking ray
-                var intersects = raycaster.intersectObjects(raycastObjs);
+                let intersects = raycaster.intersectObjects(raycastObjs);
 
                 if (intersects.length > 0) {
+                    if (INTERSECTED && INTERSECTED != CLICKED) {
+                        INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
+                    }
 
-                    if (INTERSECTED != intersects[0].object) {
+                    INTERSECTED = intersects[0].object;
 
-                        if (INTERSECTED) 
-                            INTERSECTED.material.color.setHex(INTERSECTED.currentHex);
-                        
-
-                        INTERSECTED = intersects[0].object;
-                        INTERSECTED.currentHex = INTERSECTED.material.color.getHex();
-                        INTERSECTED.material.color.setHex(0xffffff);                        
-                        
-                        console.log(INTERSECTED.userData.properties.NAME)
+                    if (INTERSECTED != CLICKED) {
+                        INTERSECTED.material.color.setHex(0x666666);
                     }
 
                 } else {
-
-                    if (INTERSECTED) {
-                        INTERSECTED.material.color.setHex(INTERSECTED.currentHex);                        
+                    if (INTERSECTED && INTERSECTED != CLICKED) {
+                        INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
                     }
-                    
-                    INTERSECTED = null;
-                }
-
+                } 
+                
                 renderer.render(scene, camera);
             }
-            animate();
 
-            function staggerTest() {
-                let staggerObjs = [];
-                for(let i = 0; i < raycastObjs.length; ++i) { 
-                    staggerObjs.push(raycastObjs[i].position);
-                }
-                let staggerLines = [];
-                for(let i = 0; i < lineObjs.length; ++i) { 
-                    staggerLines.push(lineObjs[i].position);
-                }
-                anime({
-                    targets: staggerObjs,
-                    z: 200,
-                    delay: anime.stagger(25),
-                    easing: 'easeInQuad'
-                })
+            function setupEventListeners() {
+                document.addEventListener('click', onDocumentClick, false);
+                function onDocumentClick(event) {
+                    let intersects = raycaster.intersectObjects(raycastObjs);
 
-                anime({
-                    targets: staggerLines,
-                    z: 200,
-                    delay: anime.stagger(25),
-                    easing: 'easeOutQuad'
-                })
-                
+                    if (intersects.length > 0) {
+
+                        if (CLICKED) {
+                            CLICKED.material.color.setHex(CLICKED.userData.shapeColor);
+                        }
+
+                        CLICKED = intersects[0].object;
+                        CLICKED.material.color.setHex(0x164B91);
+
+                        document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
+
+                    } else {
+
+                        if (CLICKED) {
+                            CLICKED.material.color.setHex(CLICKED.userData.shapeColor);
+                            document.querySelector(".country_name").innerText = "";
+                        }
+
+                        CLICKED = null;
+                    }
+                }
+
+
+                document.addEventListener('wheel', onDocumentMouseWheel, false);
+                function onDocumentMouseWheel(event) {
+                    let moveToZ = camera.position.z - event.wheelDeltaY * 0.4;
+                    moveToZ = (moveToZ < 30) ? 30 : moveToZ;
+                    moveToZ = (moveToZ > 200) ? 200 : moveToZ;
+
+                    anime({
+                        targets: camera.position,
+                        z: moveToZ,
+                        duration: 500,
+                        easing: 'easeOutQuad'
+                    })
+                }
+
+                document.addEventListener('mousemove', onMouseMove, false);
+                function onMouseMove(event) {
+                    event.preventDefault();
+
+                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+
+                    if (event.buttons > 0) {
+                        camera.position.x -= event.movementX / 5;
+                        camera.position.y += event.movementY / 5;
+                    }
+                }
+
+                window.addEventListener('resize', onWindowResize, false);
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+
+                    renderer.setSize(window.innerWidth, window.innerHeight);
+                }
             }
 
 
-            document.addEventListener('wheel', onDocumentMouseWheel, false);
-            function onDocumentMouseWheel(event) {
-                anime({
-                    targets: camera.position,
-                    z: "-=" + (event.wheelDeltaY * 0.4),
-                    duration: 500,
-                    easing: 'easeOutQuad'
-                })
-            }
+            function createGUI() {
+                let Test = {
+                    stagger: function (zPosition) {
+                        let staggerObjs = raycastObjs.map((obj) => {
+                            return obj.position
+                        });
+                        let staggerLines = lineObjs.map((obj) => {
+                            return obj.position
+                        });
 
+                        anime({targets: staggerObjs, z: zPosition, delay: anime.stagger(25), easing: 'easeInQuad'})
 
-            document.addEventListener('mousemove', onMouseMove, false);
-            function onMouseMove(event) {
-                event.preventDefault();
-
-                mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
-                mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
-                
-                if (event.buttons > 0) {
-                    camera.position.x -= event.movementX / 5;
-                    camera.position.y += event.movementY / 5;
-                    camera.updateProjectionMatrix();
+                        anime({targets: staggerLines, z: zPosition, delay: anime.stagger(25), easing: 'easeOutQuad'})
+                    },
+                    staggerIn: function () {
+                        this.stagger(0);
+                    },
+                    staggerOut: function () {
+                        this.stagger(300);
+                    }
                 }
-            }
-
-            window.addEventListener('resize', onWindowResize, false);
-            function onWindowResize() {
-
-                camera.aspect = window.innerWidth / window.innerHeight;
-                camera.updateProjectionMatrix();
-
-                renderer.setSize(window.innerWidth, window.innerHeight);
+                let gui = new dat.GUI();
+                let folder1 = gui.addFolder('Test Animations');
+                folder1.add(Test, 'staggerIn');
+                folder1.add(Test, 'staggerOut');
+                folder1.open();
             }
         </script>
     </body>
