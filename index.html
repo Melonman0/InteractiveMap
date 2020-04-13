@@ -6,6 +6,7 @@
         <style>
             body {
                 margin: 0;
+                /* touch-action: none; */
             }
             canvas {
                 display: block;
@@ -23,7 +24,7 @@
         </style>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js" integrity="sha256-+5R1zw/Tcxp82QhhfAJlicTeM4LCzFxp6EvsZW3V9bE=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
         <script src="Country.js"></script>
@@ -32,25 +33,12 @@
         <div class="country_name"></div>
 
         <script>
-            let scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x222222);
-
-            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.z = 200;
-            camera.lookAt(scene.position);
-
+            let scene = new THREE.Scene();            
+            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);            
             let renderer = new THREE.WebGLRenderer();
-            renderer.setPixelRatio(window.devicePixelRatio);
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            document.body.appendChild(renderer.domElement);
-
-            let countries = [];
+            
             let raycastObjs = [];
             let lineObjs = [];
-            let raycaster = new THREE.Raycaster();
-            let mouse = new THREE.Vector2();
-            let INTERSECTED = null;
-            let CLICKED = null;
 
             init();
             setupEventListeners();
@@ -59,25 +47,25 @@
 
 
             function init() {
+                scene.background = new THREE.Color(0x222222);
+                camera.position.z = 200;
+                camera.lookAt(scene.position);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.body.appendChild(renderer.domElement);            
+
                 fetch('world_map.json').then((response) => {
                     return response.json();
-
                 }).then((topology) => {
-
                     let features = topojson.feature(topology, topology.objects.world_map);
                     console.log(features);
 
                     for (const feature of features.features) {
-                        countries.push(new Country(feature.geometry, feature.properties))
-                    }
-                    console.log(countries);
-
-
-                    for (const country of countries) {
+                        let country = new Country(feature.geometry, feature.properties);                        
                         let shape = country.createShape();
                         let line = country.createLine();
                         raycastObjs.push(shape);
-                        lineObjs.push(line)
+                        lineObjs.push(line);
 
                         // Workaround due to South Africa not having proper hole rendering
                         if (country.properties.NAME === "Lesotho") {
@@ -87,11 +75,7 @@
 
                         scene.add(shape);
                         scene.add(line);
-                    }
-
-                    // Troubleshooting
-                    // scene.add(countries.filter((x) => { return x.properties.NAME == "United States of America"})[0].createLine() );
-                    // console.log(countries.filter((x) => { return x.properties.NAME == "United States of America"}))
+                    }                    
                 });
             }
 
@@ -99,33 +83,22 @@
             function animate() {
                 requestAnimationFrame(animate);
 
-                raycaster.setFromCamera(mouse, camera);
-
-                let intersects = raycaster.intersectObjects(raycastObjs);
-
-                if (intersects.length > 0) {
-                    if (INTERSECTED && INTERSECTED != CLICKED) {
-                        INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
-                    }
-
-                    INTERSECTED = intersects[0].object;
-
-                    if (INTERSECTED != CLICKED) {
-                        INTERSECTED.material.color.setHex(0x666666);
-                    }
-
-                } else {
-                    if (INTERSECTED && INTERSECTED != CLICKED) {
-                        INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
-                    }
-                } 
-                
                 renderer.render(scene, camera);
             }
 
+
             function setupEventListeners() {
+                let raycaster = new THREE.Raycaster();
+                let mouse = new THREE.Vector2();
+                let INTERSECTED = null;
+                let CLICKED = null;
+
                 document.addEventListener('click', onDocumentClick, false);
-                function onDocumentClick(event) {
+                function onDocumentClick(event) {                    
+                    mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
+                    mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+
                     let intersects = raycaster.intersectObjects(raycastObjs);
 
                     if (intersects.length > 0) {
@@ -167,7 +140,7 @@
 
                 document.addEventListener('mousemove', onMouseMove, false);
                 function onMouseMove(event) {
-                    event.preventDefault();
+                    event.preventDefault();                    
 
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
@@ -176,6 +149,27 @@
                         camera.position.x -= event.movementX / 5;
                         camera.position.y += event.movementY / 5;
                     }
+
+                    raycaster.setFromCamera(mouse, camera);
+
+                    let intersects = raycaster.intersectObjects(raycastObjs);
+
+                    if (intersects.length > 0) {
+                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
+                        }
+
+                        INTERSECTED = intersects[0].object;
+
+                        if (INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.setHex(0x666666);
+                        }
+
+                    } else {
+                        if (INTERSECTED && INTERSECTED != CLICKED) {
+                            INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
+                        }
+                    } 
                 }
 
                 window.addEventListener('resize', onWindowResize, false);
@@ -185,7 +179,6 @@
                     renderer.setSize(window.innerWidth, window.innerHeight);
                 }
             }
-
 
             function createGUI() {
                 let Test = {
