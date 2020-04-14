@@ -35,7 +35,7 @@
         <script>
             let scene = new THREE.Scene();            
             let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);            
-            let renderer = new THREE.WebGLRenderer();
+            let renderer = new THREE.WebGLRenderer();             
             
             let raycastObjs = [];
             let lineObjs = [];
@@ -54,7 +54,7 @@
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 document.body.appendChild(renderer.domElement);            
 
-                fetch('world_map.json').then((response) => {
+                fetch("world_map.json").then((response) => {
                     return response.json();
                 }).then((topology) => {
                     let features = topojson.feature(topology, topology.objects.world_map);
@@ -93,7 +93,7 @@
                 let INTERSECTED = null;
                 let CLICKED = null;
 
-                document.addEventListener('click', onDocumentClick, false);
+                document.addEventListener("click", onDocumentClick, false);
                 function onDocumentClick(event) {                    
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
@@ -104,18 +104,18 @@
                     if (intersects.length > 0) {
 
                         if (CLICKED) {
-                            CLICKED.material.color.setHex(CLICKED.userData.shapeColor);
+                            CLICKED.material.color.set(CLICKED.userData.shapeColor);
                         }
 
                         CLICKED = intersects[0].object;
-                        CLICKED.material.color.setHex(0x164B91);
+                        CLICKED.material.color.set(0x164B91);
 
                         document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
 
                     } else {
 
                         if (CLICKED) {
-                            CLICKED.material.color.setHex(CLICKED.userData.shapeColor);
+                            CLICKED.material.color.set(CLICKED.userData.shapeColor);
                             document.querySelector(".country_name").innerText = "";
                         }
 
@@ -124,7 +124,7 @@
                 }
 
 
-                document.addEventListener('wheel', onDocumentMouseWheel, false);
+                document.addEventListener("wheel", onDocumentMouseWheel, false);
                 function onDocumentMouseWheel(event) {
                     let moveToZ = camera.position.z - event.wheelDeltaY * 0.4;
                     moveToZ = (moveToZ < 30) ? 30 : moveToZ;
@@ -134,11 +134,11 @@
                         targets: camera.position,
                         z: moveToZ,
                         duration: 500,
-                        easing: 'easeOutQuad'
+                        easing: "easeOutQuad"
                     })
                 }
 
-                document.addEventListener('mousemove', onMouseMove, false);
+                document.addEventListener("mousemove", onMouseMove, false);
                 function onMouseMove(event) {
                     event.preventDefault();                    
 
@@ -156,7 +156,7 @@
 
                     if (intersects.length > 0) {
                         if (INTERSECTED && INTERSECTED != CLICKED) {
-                            INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
+                            INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
                         }
 
                         INTERSECTED = intersects[0].object;
@@ -167,12 +167,12 @@
 
                     } else {
                         if (INTERSECTED && INTERSECTED != CLICKED) {
-                            INTERSECTED.material.color.setHex(INTERSECTED.userData.shapeColor);
+                            INTERSECTED.material.color.set(INTERSECTED.userData.shapeColor);
                         }
                     } 
                 }
 
-                window.addEventListener('resize', onWindowResize, false);
+                window.addEventListener("resize", onWindowResize, false);
                 function onWindowResize() {
                     camera.aspect = window.innerWidth / window.innerHeight;
                     camera.updateProjectionMatrix();
@@ -191,22 +191,66 @@
                             return obj.position
                         });
 
-                        anime({targets: staggerObjs, z: zPosition, delay: anime.stagger(25), easing: 'easeInQuad'})
+                        anime({targets: staggerObjs, z: zPosition, delay: anime.stagger(25), easing: "easeInQuad"})
 
-                        anime({targets: staggerLines, z: zPosition, delay: anime.stagger(25), easing: 'easeOutQuad'})
+                        anime({targets: staggerLines, z: zPosition, delay: anime.stagger(25), easing: "easeOutQuad"})
                     },
                     staggerIn: function () {
                         this.stagger(0);
                     },
                     staggerOut: function () {
                         this.stagger(300);
-                    }
+                    },
+                    randomcolors: function () {
+                        for(const shape of raycastObjs) {
+                            let color = Math.random() * 0xffffff;
+                            shape.material.color.set(color);                            
+                            shape.userData.shapeColor = color;
+                        }
+                        for(const shape of lineObjs) {
+                            let color = Math.random() * 0xffffff;
+                            shape.material.color.set(color);                            
+                            shape.userData.lineColor = color;
+                        }
+                        scene.background.set(Math.random() * 0xffffff)
+
+                    },
+                    backgroundColor: "#" + scene.background.getHexString(),
+                    shapeColor: "#000000",
+                    lineColor: "#ff0000"
+
                 }
                 let gui = new dat.GUI();
-                let folder1 = gui.addFolder('Test Animations');
-                folder1.add(Test, 'staggerIn');
-                folder1.add(Test, 'staggerOut');
+                gui.width = 280;
+                let folder1 = gui.addFolder("Test Animations");
+                folder1.add(Test, "staggerIn");
+                folder1.add(Test, "staggerOut");
+                
+                let folder2 = gui.addFolder("Color Settings");
+                folder2.addColor(Test, "backgroundColor")
+                    .name("Background Color")
+                    .onChange(() => {
+                        scene.background = new THREE.Color(Test.backgroundColor);
+                    });
+                folder2.addColor(Test, "shapeColor")
+                    .name("Shape Color")
+                    .onChange(() => {                        
+                        for(const shape of raycastObjs) {
+                            shape.material.color.set(Test.shapeColor);                            
+                            shape.userData.shapeColor = Test.shapeColor;
+                        }
+                    });
+                folder2.addColor(Test, "lineColor")
+                    .name("Line Color")
+                    .onChange(() => {                        
+                        for(const shape of lineObjs) {
+                            shape.material.color.set(Test.lineColor);                            
+                            shape.userData.lineColor = Test.lineColor;
+                        }
+                    });
+                folder2.add(Test, "randomcolors").name("Random Fun Times")
                 folder1.open();
+                folder2.open();
             }
         </script>
     </body>
