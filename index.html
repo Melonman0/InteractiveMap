@@ -279,6 +279,25 @@
                         scene.background.set(Math.random() * 0xffffff);
                         isShaderOn = false;
                     },
+                    neonMap: function () {                        
+                        for(const shape of raycastObjs) {
+                            let color = 0x000000;
+                            if(isShaderOn) 
+                                shape.material = new THREE.MeshBasicMaterial({color: color});
+                            shape.material.color.set(color); 
+                            shape.userData.shapeColor = color;
+                        }
+                        for(const line of lineObjs) {
+                            let color = Math.random() * 0xffffff;
+                            if(isShaderOn) 
+                                line.material = new THREE.LineBasicMaterial({color: color});
+
+                            line.material.color.set(color);                            
+                            line.userData.lineColor = color;
+                        }
+                        scene.background.set(0x000000);
+                        isShaderOn = false;
+                    },
                     turnShaderOn: function() {
                         isShaderOn = true;
                         for(const shape of raycastObjs) {                            
@@ -340,7 +359,8 @@
                             shape.userData.lineColor = Test.lineColor;
                         }
                     });
-                folder2.add(Test, "randomColors").name("Random Colors");                
+                folder2.add(Test, "randomColors").name("Random Colors");  
+                folder2.add(Test, "neonMap").name("Neon Map");                
                 folder2.add(Test, "turnShaderOn").name("Shader Test");
                 folder1.open();
                 folder2.open();
