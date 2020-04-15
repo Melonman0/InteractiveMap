@@ -51,7 +51,7 @@ Country.prototype = {
         }
 
         let mat = new THREE.MeshBasicMaterial({color: this.shapeColor}); 
-        let shapeGeo = new THREE.ShapeGeometry(shapearray);
+        let shapeGeo = new THREE.ShapeBufferGeometry(shapearray);
         let mesh = new THREE.Mesh( shapeGeo, mat ) ;
         mesh.userData = this;
         

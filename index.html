@@ -22,20 +22,63 @@
                 font-family: 'Roboto', sans-serif;
             }
         </style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js" integrity="sha256-+5R1zw/Tcxp82QhhfAJlicTeM4LCzFxp6EvsZW3V9bE=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.115.0/build/three.min.js" integrity="sha256-BKLpj/JlS+Fk4HENt+eiU5TifNz5GsSAl3KpXe80Lxc=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
         <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500&display=swap" rel="stylesheet">
         <script src="Country.js"></script>
+        <script id="vertexShader" type="x-shader/x-vertex">     
+            attribute vec3 center;   
+            varying vec4 v_position;
+            varying vec2 v_dist_from_o;
+            varying vec3 v_center;
+            uniform float time;
+            void main()	{            
+                vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+                v_position = vec4( position, 1.0 );
+                v_dist_from_o = abs(v_position.xy);                
+                v_center = center;
+                gl_Position = projectionMatrix * mvPosition;
+            }
+        </script>
+    
+       <script id="stateShader" type="x-shader/x-fragment">
+          uniform float time;
+          uniform vec2 resolution;
+          varying vec4 v_position;
+          varying vec2 v_dist_from_o;
+          varying vec3 v_center;
+    
+          void main( void ) {         
+            vec2 position = - 1.0 + 2.0 * gl_FragCoord.xy / resolution.xy;         
+            float red   = abs( sin( (v_dist_from_o.y * position.y * .1) + ( v_dist_from_o.x * position.x * .1 ) + time * .2));            
+            float green = abs( sin( position.y + time * .2 / 5.0 ) );
+            float blue  = abs( sin( position.x + time * .2 / 4.0 ) );         
+    
+            gl_FragColor = vec4( red, green, blue, 1.0 );
+          }          
+       </script>
+       <script id="lineShader" type="x-shader/x-fragment">
+        void main( void ) {         
+           gl_FragColor = vec4( .2, .2, .2, 1.0 );
+        }          
+     </script>
     </head>
     <body>
         <div class="country_name"></div>
 
         <script>
             let scene = new THREE.Scene();            
-            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);            
-            let renderer = new THREE.WebGLRenderer();             
+            let camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000); 
+            let isShaderOn = false;           
+            let renderer = new THREE.WebGLRenderer();
+            let uniforms = {
+                        time: { type: "f", value: .1 },
+                        resolution: { type: "v2", value: new THREE.Vector2() },
+                        currentPos: { type: "v3", value: new THREE.Vector3() }
+                    };      
+            let startTime = Date.now();     
             
             let raycastObjs = [];
             let lineObjs = [];
@@ -59,6 +102,7 @@
                 }).then((topology) => {
                     let features = topojson.feature(topology, topology.objects.world_map);
                     console.log(features);
+                    console.log(topojson.bbox(topology));
 
                     for (const feature of features.features) {
                         let country = new Country(feature.geometry, feature.properties);                        
@@ -72,17 +116,21 @@
                             shape.position.z = .1;
                             line.position.z = .1;
                         }
-
+                        
                         scene.add(shape);
                         scene.add(line);
-                    }                    
+                    }
+                    uniforms.resolution.value.x = window.innerWidth;
+                    uniforms.resolution.value.y = window.innerHeight;                    
                 });
             }
 
 
             function animate() {
                 requestAnimationFrame(animate);
-
+                var elapsedMilliseconds = Date.now() - startTime;
+                var elapsedSeconds = elapsedMilliseconds / 1000.;
+                uniforms.time.value = 60. * elapsedSeconds/10;
                 renderer.render(scene, camera);
             }
 
@@ -94,7 +142,10 @@
                 let CLICKED = null;
 
                 document.addEventListener("click", onDocumentClick, false);
-                function onDocumentClick(event) {                    
+                function onDocumentClick(event) {                
+                    if(isShaderOn)
+                        return;
+                    
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
                     raycaster.setFromCamera(mouse, camera);
@@ -150,6 +201,9 @@
                         camera.position.y += event.movementY / 5;
                     }
 
+                    if(isShaderOn)
+                        return;
+
                     raycaster.setFromCamera(mouse, camera);
 
                     let intersects = raycaster.intersectObjects(raycastObjs);
@@ -201,19 +255,50 @@
                     staggerOut: function () {
                         this.stagger(300);
                     },
-                    randomcolors: function () {
+                    randomColors: function () {                        
                         for(const shape of raycastObjs) {
                             let color = Math.random() * 0xffffff;
-                            shape.material.color.set(color);                            
+                            if(isShaderOn) 
+                                shape.material = new THREE.MeshBasicMaterial({color: color});
+                            shape.material.color.set(color); 
                             shape.userData.shapeColor = color;
                         }
-                        for(const shape of lineObjs) {
+                        for(const line of lineObjs) {
                             let color = Math.random() * 0xffffff;
-                            shape.material.color.set(color);                            
-                            shape.userData.lineColor = color;
-                        }
-                        scene.background.set(Math.random() * 0xffffff)
+                            if(isShaderOn) 
+                                line.material = new THREE.LineBasicMaterial({color: color});
 
+                            line.material.color.set(color);                            
+                            line.userData.lineColor = color;
+                        }
+                        scene.background.set(Math.random() * 0xffffff);
+                        isShaderOn = false;
+                    },
+                    turnShaderOn: function() {
+                        isShaderOn = true;
+                        for(const shape of raycastObjs) {                            
+                            let box = shape.geometry.computeBoundingBox();
+                            let center = new THREE.Vector3();
+                            shape.geometry.boundingBox.getCenter(center);
+                            var centerArray = []
+                            center.toArray(centerArray);
+                            shape.geometry.setAttribute( 'center', new THREE.Float32BufferAttribute( centerArray, 3 ) );
+
+                            shape.material = new THREE.ShaderMaterial({
+                                uniforms: uniforms,
+                                vertexShader: document.getElementById('vertexShader').textContent,
+                                fragmentShader: document.getElementById('stateShader').textContent
+                            });
+                        }
+
+                        for(const line of lineObjs) {                            
+                            line.material = new THREE.ShaderMaterial({
+                                uniforms: uniforms,
+                                vertexShader: document.getElementById('vertexShader').textContent,
+                                fragmentShader: document.getElementById('lineShader').textContent
+                            });
+                        }             
+                                    
                     },
                     backgroundColor: "#" + scene.background.getHexString(),
                     shapeColor: "#000000",
@@ -229,12 +314,13 @@
                 let folder2 = gui.addFolder("Color Settings");
                 folder2.addColor(Test, "backgroundColor")
                     .name("Background Color")
-                    .onChange(() => {
+                    .onChange(() => {                        
                         scene.background = new THREE.Color(Test.backgroundColor);
                     });
                 folder2.addColor(Test, "shapeColor")
                     .name("Shape Color")
-                    .onChange(() => {                        
+                    .onChange(() => {         
+                        if(isShaderOn) return;               
                         for(const shape of raycastObjs) {
                             shape.material.color.set(Test.shapeColor);                            
                             shape.userData.shapeColor = Test.shapeColor;
@@ -242,13 +328,15 @@
                     });
                 folder2.addColor(Test, "lineColor")
                     .name("Line Color")
-                    .onChange(() => {                        
+                    .onChange(() => {
+                        if(isShaderOn) return;                        
                         for(const shape of lineObjs) {
                             shape.material.color.set(Test.lineColor);                            
                             shape.userData.lineColor = Test.lineColor;
                         }
                     });
-                folder2.add(Test, "randomcolors").name("Random Fun Times")
+                folder2.add(Test, "randomColors").name("Random Colors");                
+                folder2.add(Test, "turnShaderOn").name("Shader Test");
                 folder1.open();
                 folder2.open();
             }
