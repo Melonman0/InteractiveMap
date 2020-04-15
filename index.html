@@ -142,35 +142,40 @@
                 let CLICKED = null;
 
                 document.addEventListener("click", onDocumentClick, false);
-                function onDocumentClick(event) {                
-                    if(isShaderOn)
-                        return;
-                    
+                function onDocumentClick(event) {                                                        
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
                     raycaster.setFromCamera(mouse, camera);
 
                     let intersects = raycaster.intersectObjects(raycastObjs);
 
-                    if (intersects.length > 0) {
-
-                        if (CLICKED) {
-                            CLICKED.material.color.set(CLICKED.userData.shapeColor);
-                        }
-
-                        CLICKED = intersects[0].object;
-                        CLICKED.material.color.set(0x164B91);
-
-                        document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
-
-                    } else {
-
-                        if (CLICKED) {
-                            CLICKED.material.color.set(CLICKED.userData.shapeColor);
+                    if(isShaderOn) {
+                        if (intersects.length > 0)
+                            document.querySelector(".country_name").innerText = intersects[0].object.userData.properties.NAME;
+                        else
                             document.querySelector(".country_name").innerText = "";
-                        }
+                    }
+                    else {
+                        if (intersects.length > 0) {
 
-                        CLICKED = null;
+                            if (CLICKED) {
+                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
+                            }
+
+                            CLICKED = intersects[0].object;
+                            CLICKED.material.color.set(0x164B91);
+
+                            document.querySelector(".country_name").innerText = CLICKED.userData.properties.NAME;
+
+                            } else {
+
+                            if (CLICKED) {
+                                CLICKED.material.color.set(CLICKED.userData.shapeColor);
+                                document.querySelector(".country_name").innerText = "";
+                            }
+
+                            CLICKED = null;
+                        }
                     }
                 }
 
