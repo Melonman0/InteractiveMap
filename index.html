@@ -24,6 +24,7 @@
             }
         </style>
         <script src="https://cdn.jsdelivr.net/npm/three@0.115.0/build/three.min.js" integrity="sha256-BKLpj/JlS+Fk4HENt+eiU5TifNz5GsSAl3KpXe80Lxc=" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js" integrity="sha256-eVNjHw5UeU0jUqPPpZHAkU1z4U+QFBBY488WvueTm88=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js" integrity="sha256-tHoAPGoNdhIR28YHl9DWLzeRfdwigkH7OCBXMrHXhoM=" crossorigin="anonymous"></script>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.0/anime.min.js" integrity="sha256-hBMojZuWKocCflyaG8T19KBq9OlTlK39CTxb8AUWKhY=" crossorigin="anonymous"></script>        
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js" integrity="sha256-8IvN8DiAvwO7J3WLqoRDg2/XfkOxcB0urCTU4x0kBOM=" crossorigin="anonymous"></script>
@@ -79,7 +80,7 @@
                         resolution: { type: "v2", value: new THREE.Vector2() },
                         currentPos: { type: "v3", value: new THREE.Vector3() }
                     };      
-            let startTime = Date.now();     
+            let startTime = Date.now();
             
             let raycastObjs = [];
             let lineObjs = [];
@@ -234,28 +235,40 @@
                     } 
                 }
 
-                window.addEventListener("touchstart", onTouchStart, false);
+                var hammertime = new Hammer(window);
+                hammertime.get('pinch').set({ enable: true });
+                hammertime.on("pinch", function(ev) {
+                    let moveToZ = camera.position.z;
+                    
+                    if(ev.scale >= 1)
+                        moveToZ -= ev.scale / 2;
+                    else
+                        moveToZ += ev.scale * 2;
+
+                    moveToZ = (moveToZ < 30) ? 30 : moveToZ;
+                    moveToZ = (moveToZ > 200) ? 200 : moveToZ;
+                    camera.position.z = moveToZ;
+                });
+
                 let start = {x:0, y:0};
-                function onTouchStart(event) {
-                    start.x = event.touches[0].pageX;
-                    start.y = event.touches[0].pageY;
-                }
-
-                window.addEventListener("touchmove", onTouchMove, false); 
-                function onTouchMove(event){
-                    delta = {x:0, y:0};
-
-                    delta.x = start.x - event.touches[0].pageX;
-                    delta.y = start.y - event.touches[0].pageY;
-                    if (event.targetTouches.length === 1) {
-                        console.log(delta)
+                hammertime.on("panstart panmove", function(ev) {
+                    if(ev.type === "panstart") {
+                        
+                        start.x = ev.srcEvent.clientX;
+                        start.y = ev.srcEvent.clientY;
+                    }
+                    if (ev.type === "panmove") {
+                        let delta = {x:0, y:0};
+                        delta.x = start.x - ev.srcEvent.clientX;
+                        delta.y = start.y - ev.srcEvent.clientY;                     
+                        
                         camera.position.x += delta.x / 2;
                         camera.position.y -= delta.y / 2;
 
-                        start.x = event.touches[0].pageX;
-                        start.y = event.touches[0].pageY;
+                        start.x = ev.srcEvent.clientX;
+                        start.y = ev.srcEvent.clientY;
                     }
-                }
+                });
 
                 window.addEventListener("resize", onWindowResize, false);
                 function onWindowResize() {
@@ -356,10 +369,10 @@
 
                 }
                 let gui = new dat.GUI();
-                gui.width = 280;
+                gui.width = 265;
                 let folder1 = gui.addFolder("Test Animations");
-                folder1.add(Test, "staggerIn");
-                folder1.add(Test, "staggerOut");
+                folder1.add(Test, "staggerIn").name("Stagger In");
+                folder1.add(Test, "staggerOut").name("Stagger Out");
                 
                 let folder2 = gui.addFolder("Color Settings");
                 folder2.addColor(Test, "backgroundColor")
