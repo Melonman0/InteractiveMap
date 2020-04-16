@@ -81,12 +81,12 @@
                         currentPos: { type: "v3", value: new THREE.Vector3() }
                     };      
             let startTime = Date.now();
+            let cameraUpdatePos = new THREE.Vector3();
             
             let raycastObjs = [];
             let lineObjs = [];
 
-
-
+            
             init();
             setupEventListeners();
             createGUI();
@@ -96,8 +96,6 @@
             function init() {
                 scene.background = new THREE.Color(0x222222);
                 camera.position.z = 200;
-                camera.lookAt(scene.position);
-                renderer.setPixelRatio(window.devicePixelRatio);
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 document.body.appendChild(renderer.domElement); 
                 
@@ -135,6 +133,10 @@
                 var elapsedMilliseconds = Date.now() - startTime;
                 var elapsedSeconds = elapsedMilliseconds / 1000.;
                 uniforms.time.value = 60. * elapsedSeconds/10;
+                
+                camera.position.x = cameraUpdatePos.x;                
+                camera.position.y = cameraUpdatePos.y;
+                
                 renderer.render(scene, camera);
             }
 
@@ -205,11 +207,6 @@
                     mouse.x = (event.clientX / renderer.domElement.clientWidth) * 2 - 1;
                     mouse.y = -(event.clientY / renderer.domElement.clientHeight) * 2 + 1;
 
-                    if (event.buttons > 0) {
-                        camera.position.x -= event.movementX / 5;
-                        camera.position.y += event.movementY / 5;
-                    }
-
                     if(isShaderOn)
                         return;
 
@@ -249,24 +246,44 @@
                     moveToZ = (moveToZ > 200) ? 200 : moveToZ;
                     camera.position.z = moveToZ;
                 });
+                
 
-                let start = {x:0, y:0};
+                let startPos = new THREE.Vector3();
+                let currentPos = new THREE.Vector3(); 
+                let delta = new THREE.Vector3();
                 hammertime.on("panstart panmove", function(ev) {
-                    if(ev.type === "panstart") {
-                        
-                        start.x = ev.srcEvent.clientX;
-                        start.y = ev.srcEvent.clientY;
-                    }
-                    if (ev.type === "panmove") {
-                        let delta = {x:0, y:0};
-                        delta.x = start.x - ev.srcEvent.clientX;
-                        delta.y = start.y - ev.srcEvent.clientY;                     
-                        
-                        camera.position.x += delta.x / 2;
-                        camera.position.y -= delta.y / 2;
+                    if(ev.type === "panstart") {                        
+                        startPos.set( 
+                            (ev.srcEvent.clientX / window.innerWidth) * 2 - 1, 
+                            -(ev.srcEvent.clientY / window.innerHeight) * 2 + 1, 
+                            0.5 
+                        );
 
-                        start.x = ev.srcEvent.clientX;
-                        start.y = ev.srcEvent.clientY;
+                        startPos.unproject( camera );
+                        startPos.sub(camera.position).normalize();                        
+                        let distance = - camera.position.z / startPos.z;
+                        startPos.multiplyScalar( distance )
+                        
+                        startPos.x += cameraUpdatePos.x;
+                        startPos.y += cameraUpdatePos.y;
+                    }
+
+                    if (ev.type === "panmove") 
+                    {                    
+                        currentPos.set( 
+                            (ev.srcEvent.clientX / window.innerWidth) * 2 - 1, 
+                            -(ev.srcEvent.clientY / window.innerHeight) * 2 + 1, 
+                            0.5 
+                        );         
+                        
+
+                        currentPos.unproject( camera );
+                        currentPos.sub(camera.position).normalize();
+                        let distance = - camera.position.z / currentPos.z;
+                        currentPos.multiplyScalar( distance );
+                        
+                        delta.subVectors(startPos, currentPos);                         
+                        cameraUpdatePos.copy(delta);
                     }
                 });
 
