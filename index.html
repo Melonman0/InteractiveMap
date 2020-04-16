@@ -189,8 +189,7 @@
                 document.addEventListener("wheel", onDocumentMouseWheel, false);
                 function onDocumentMouseWheel(event) {
                     let moveToZ = camera.position.z - event.wheelDeltaY * 0.4;
-                    moveToZ = (moveToZ < 30) ? 30 : moveToZ;
-                    moveToZ = (moveToZ > 200) ? 200 : moveToZ;
+                    moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
 
                     anime({
                         targets: camera.position,
@@ -234,16 +233,17 @@
 
                 var hammertime = new Hammer(window);
                 hammertime.get('pinch').set({ enable: true });
-                hammertime.on("pinch", function(ev) {
+                hammertime.on("pinchin pinchout", function(ev) {
                     let moveToZ = camera.position.z;
-                    
-                    if(ev.scale >= 1)
-                        moveToZ -= ev.scale / 2;
-                    else
+                    if(ev.type === "pinchin") {                           
                         moveToZ += ev.scale * 2;
+                    }
 
-                    moveToZ = (moveToZ < 30) ? 30 : moveToZ;
-                    moveToZ = (moveToZ > 200) ? 200 : moveToZ;
+                    if(ev.type === "pinchout") {                        
+                        moveToZ -= ev.scale / 2;
+                    }    
+
+                    moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
                     camera.position.z = moveToZ;
                 });
                 
@@ -284,6 +284,9 @@
                         
                         delta.subVectors(startPos, currentPos);                         
                         cameraUpdatePos.copy(delta);
+
+                        cameraUpdatePos.x = THREE.MathUtils.clamp(cameraUpdatePos.x, -200, 200);
+                        cameraUpdatePos.y = THREE.MathUtils.clamp(cameraUpdatePos.y, -100, 100);
                     }
                 });
 
