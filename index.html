@@ -130,8 +130,8 @@
 
             function animate() {
                 requestAnimationFrame(animate);
-                var elapsedMilliseconds = Date.now() - startTime;
-                var elapsedSeconds = elapsedMilliseconds / 1000.;
+                let elapsedMilliseconds = Date.now() - startTime;
+                let elapsedSeconds = elapsedMilliseconds / 1000.;
                 uniforms.time.value = 60. * elapsedSeconds/10;
                 
                 camera.position.x = cameraUpdatePos.x;                
@@ -232,21 +232,28 @@
                     } 
                 }
 
-                var hammertime = new Hammer(window);
+                let hammertime = new Hammer(window);
+                let lastScale = 1;
+                let zoomOffset = new THREE.Vector3(0,0,0);
                 hammertime.get('pinch').set({ enable: true });
-                hammertime.on("pinchin pinchout", function(ev) {
+                hammertime.on("pinchstart pinchin pinchout pinchend", function(ev) {
+                    console.log(ev.center)
                     let moveToZ = camera.position.z;
-                    if(ev.type === "pinchin") {                           
-                        moveToZ += ev.scale * 2;
+                    
+                    if (ev.scale < lastScale) {
+                        moveToZ += 1 * (1/ev.scale);
+                    } else if (ev.scale > lastScale) {
+                        moveToZ -= 1 * ev.scale;
                     }
+                    lastScale = ev.scale;
 
-                    if(ev.type === "pinchout") {                        
-                        moveToZ -= ev.scale / 2;
+                    if(ev.type === "pinchend") {                        
+                        lastScale = 1;
                     }    
 
-                    moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
-                    cameraUpdatePos.z = moveToZ;
+                    cameraUpdatePos.z = THREE.MathUtils.clamp(moveToZ, 30, 200);;
                 });
+
                 
 
                 let startPos = new THREE.Vector3();
@@ -363,7 +370,7 @@
                             let box = shape.geometry.computeBoundingBox();
                             let center = new THREE.Vector3();
                             shape.geometry.boundingBox.getCenter(center);
-                            var centerArray = []
+                            let centerArray = []
                             center.toArray(centerArray);
                             shape.geometry.setAttribute( 'center', new THREE.Float32BufferAttribute( centerArray, 3 ) );
 
