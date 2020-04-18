@@ -81,7 +81,7 @@
                         currentPos: { type: "v3", value: new THREE.Vector3() }
                     };      
             let startTime = Date.now();
-            let cameraUpdatePos = new THREE.Vector3();
+            let cameraUpdatePos = new THREE.Vector3(0, 45, 200);
             
             let raycastObjs = [];
             let lineObjs = [];
@@ -95,11 +95,11 @@
 
             function init() {
                 scene.background = new THREE.Color(0x222222);
-                camera.position.z = 200;
+
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 document.body.appendChild(renderer.domElement); 
                 
-                fetch("world_map.json").then((response) => {
+                fetch("world_map_web_merc.json").then((response) => {
                     return response.json();
                 }).then((topology) => {
                     let features = topojson.feature(topology, topology.objects.world_map);
@@ -136,6 +136,7 @@
                 
                 camera.position.x = cameraUpdatePos.x;                
                 camera.position.y = cameraUpdatePos.y;
+                camera.position.z = cameraUpdatePos.z;
                 
                 renderer.render(scene, camera);
             }
@@ -192,7 +193,7 @@
                     moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
 
                     anime({
-                        targets: camera.position,
+                        targets: cameraUpdatePos,
                         z: moveToZ,
                         duration: 500,
                         easing: "easeOutQuad"
@@ -282,11 +283,10 @@
                         let distance = - camera.position.z / currentPos.z;
                         currentPos.multiplyScalar( distance );
                         
-                        delta.subVectors(startPos, currentPos);                         
-                        cameraUpdatePos.copy(delta);
+                        delta.subVectors(startPos, currentPos);                                                 
 
-                        cameraUpdatePos.x = THREE.MathUtils.clamp(cameraUpdatePos.x, -200, 200);
-                        cameraUpdatePos.y = THREE.MathUtils.clamp(cameraUpdatePos.y, -100, 100);
+                        cameraUpdatePos.x = THREE.MathUtils.clamp(delta.x, -200, 200);
+                        cameraUpdatePos.y = THREE.MathUtils.clamp(delta.y, -50, 140); //Y clamp is strange because Antartica has been removed, but the coordinates stated the same
                     }
                 });
 
