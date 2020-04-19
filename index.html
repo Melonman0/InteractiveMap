@@ -189,7 +189,8 @@
 
                 document.addEventListener("wheel", onDocumentMouseWheel, false);
                 function onDocumentMouseWheel(event) {
-                    let moveToZ = camera.position.z - event.wheelDeltaY * 0.4;
+                    let direction = Math.sign(event.deltaY);
+                    let moveToZ = camera.position.z + (direction * 40);
                     moveToZ = THREE.MathUtils.clamp(moveToZ, 30, 200);
 
                     anime({
